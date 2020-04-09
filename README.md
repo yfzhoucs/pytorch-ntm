@@ -104,4 +104,9 @@ optional arguments:
                         Path for saving checkpoint data (default: './')
   --report-interval REPORT_INTERVAL
                         Reporting interval
+
 ```
+
+## Testing
+
+sh test*.sh

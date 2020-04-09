@@ -51,19 +51,19 @@ def dataloader(num_batches,
 @attrs
 class CopyTaskParams(object):
     name = attrib(default="copy-task")
-    controller_size = attrib(default=100, convert=int)
-    controller_layers = attrib(default=1,convert=int)
-    num_heads = attrib(default=1, convert=int)
-    sequence_width = attrib(default=8, convert=int)
-    sequence_min_len = attrib(default=1,convert=int)
-    sequence_max_len = attrib(default=20, convert=int)
-    memory_n = attrib(default=128, convert=int)
-    memory_m = attrib(default=20, convert=int)
-    num_batches = attrib(default=50000, convert=int)
-    batch_size = attrib(default=1, convert=int)
-    rmsprop_lr = attrib(default=1e-4, convert=float)
-    rmsprop_momentum = attrib(default=0.9, convert=float)
-    rmsprop_alpha = attrib(default=0.95, convert=float)
+    controller_size = attrib(default=100, converter=int)
+    controller_layers = attrib(default=1,converter=int)
+    num_heads = attrib(default=1, converter=int)
+    sequence_width = attrib(default=8, converter=int)
+    sequence_min_len = attrib(default=1,converter=int)
+    sequence_max_len = attrib(default=20, converter=int)
+    memory_n = attrib(default=128, converter=int)
+    memory_m = attrib(default=20, converter=int)
+    num_batches = attrib(default=50000, converter=int)
+    batch_size = attrib(default=1, converter=int)
+    rmsprop_lr = attrib(default=1e-4, converter=float)
+    rmsprop_momentum = attrib(default=0.9, converter=float)
+    rmsprop_alpha = attrib(default=0.95, converter=float)
 
 
 #

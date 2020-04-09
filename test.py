@@ -14,6 +14,7 @@ import attr
 import argcomplete
 import torch
 import numpy as np
+from Levenshtein import *
 
 
 LOGGER = logging.getLogger(__name__)
@@ -97,68 +98,36 @@ def clip_grads(net):
         p.grad.data.clamp_(-10, 10)
 
 
-def train_batch(net, criterion, optimizer, X, Y, task='add-one'):
-    if task != 'add-one-onehot':
-        """Trains a single batch."""
-        optimizer.zero_grad()
-        inp_seq_len = X.size(0)
-        outp_seq_len, batch_size, _ = Y.size()
+def train_batch(net, criterion, optimizer, X, Y):
+    """Trains a single batch."""
+    optimizer.zero_grad()
+    inp_seq_len = X.size(0)
+    outp_seq_len, batch_size, _ = Y.size()
 
-        # New sequence
-        net.init_sequence(batch_size)
+    # New sequence
+    net.init_sequence(batch_size)
 
-        # Feed the sequence + delimiter
-        for i in range(inp_seq_len):
-            net(X[i])
+    # Feed the sequence + delimiter
+    for i in range(inp_seq_len):
+        net(X[i])
 
-        # Read the output (no input given)
-        y_out = torch.zeros(Y.size())
-        for i in range(outp_seq_len):
-            y_out[i], _ = net()
+    # Read the output (no input given)
+    y_out = torch.zeros(Y.size())
+    for i in range(outp_seq_len):
+        y_out[i], _ = net()
 
-        loss = criterion(y_out, Y)
-        loss.backward()
-        clip_grads(net)
-        optimizer.step()
+    loss = criterion(y_out, Y)
+    loss.backward()
+    clip_grads(net)
+    optimizer.step()
 
-        y_out_binarized = y_out.clone().data
-        y_out_binarized.apply_(lambda x: 0 if x < 0.5 else 1)
+    y_out_binarized = y_out.clone().data
+    y_out_binarized.apply_(lambda x: 0 if x < 0.5 else 1)
 
-        # The cost is the number of error bits per sequence
-        cost = torch.sum(torch.abs(y_out_binarized - Y.data))
+    # The cost is the number of error bits per sequence
+    cost = torch.sum(torch.abs(y_out_binarized - Y.data))
 
-        return loss.item(), cost.item() / batch_size
-    
-    else:
-        """Trains a single batch."""
-        optimizer.zero_grad()
-        inp_seq_len = X.size(0)
-        outp_seq_len, batch_size, _ = Y.size()
-
-        # New sequence
-        net.init_sequence(batch_size)
-
-        # Feed the sequence + delimiter
-        for i in range(inp_seq_len):
-            net(X[i])
-
-        # Read the output (no input given)
-        y_out = torch.zeros(Y.size())
-        for i in range(outp_seq_len):
-            y_out[i], _ = net()
-
-        loss = criterion(y_out, Y)
-        loss.backward()
-        clip_grads(net)
-        optimizer.step()
-
-        y_out_binarized = y_out.clone().data
-        y_out_binarized.apply_(lambda x: 0 if x < 0.5 else 1)
-
-        # The cost is the number of error bits per sequence
-        cost = torch.sum(torch.abs(y_out_binarized - Y.data))
-
-        return loss.item(), cost.item() / batch_size
+    return loss.item(), cost.item() / batch_size
 
 
 def evaluate(net, criterion, X, Y):
@@ -253,6 +222,8 @@ def init_arguments():
                         help="Path for saving checkpoint data (default: './')")
     parser.add_argument('--report-interval', type=int, default=REPORT_INTERVAL,
                         help="Reporting interval")
+    parser.add_argument('--checkpoint_file', type=str, default='',
+                        help="Checkpoint file to load")
 
     argcomplete.autocomplete(parser)
 
@@ -313,9 +284,40 @@ def main():
 
     # Initialize the model
     model = init_model(args)
-
     LOGGER.info("Total number of parameters: %d", model.net.calculate_num_params())
-    train_model(model, args)
+    net = model.net
+    net.load_state_dict(torch.load(args.checkpoint_file))
+
+    inp_num = '1'
+    while inp_num:
+        print('please input a number: ', end='')
+        inp_str = input()
+        output_human = model.input_human(net, inp_str)
+        print('output:', output_human)
+
+    # error = 0
+    # for i in range(1000):
+    #     seq_len = random.randint(1, 10)
+    #     inp_number = np.random.randint(10 ** seq_len)
+    #     outp_number = inp_number + 1
+    #     inp_str = str(inp_number).zfill(seq_len)
+    #     outp_str_gt = str(outp_number).zfill(seq_len)
+
+    #     if args.task == 'add-one-onehot-reverse':
+    #         inp_str = inp_str[::-1]
+    #         outp_str_gt = outp_str_gt[::-1]
+
+    #     output_str_pred = model.input_human(net, inp_str)
+    #     # print(outp_str_gt, output_str_pred)
+    #     lev = distance(output_str_pred, outp_str_gt)
+    #     error += lev
+    #     if i % 100 == 0:
+    #         print(i)
+    #     # print(lev)
+
+    # print(error / 1000)
+
+    import pdb; pdb.set_trace()
 
 
 if __name__ == '__main__':
