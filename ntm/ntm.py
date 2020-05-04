@@ -3,6 +3,10 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+else:
+    device = torch.device('cpu')
 
 class NTM(nn.Module):
     """A Neural Turing Machine."""
@@ -49,7 +53,7 @@ class NTM(nn.Module):
         self.reset_parameters()
 
     def create_new_state(self, batch_size):
-        init_r = [r.clone().repeat(batch_size, 1) for r in self.init_r]
+        init_r = torch.cat([r.clone().repeat(batch_size, 1) for r in self.init_r], dim=1)#.to(device)
         controller_state = self.controller.create_new_state(batch_size)
         heads_state = [head.create_new_state(batch_size) for head in self.heads]
 
@@ -60,7 +64,7 @@ class NTM(nn.Module):
         nn.init.xavier_uniform_(self.fc.weight, gain=1)
         nn.init.normal_(self.fc.bias, std=0.01)
 
-    def forward(self, x, prev_state):
+    def forward(self, k_x, v_x, k_ctrl, v_ctrl, prev_state):
         """NTM forward function.
 
         :param x: input vector (batch_size x num_inputs)
@@ -68,10 +72,17 @@ class NTM(nn.Module):
         """
         # Unpack the previous state
         prev_reads, prev_controller_state, prev_heads_states = prev_state
+        # k_x, v_x = self.sensor(x)
+        # k_ctrl, v_ctrl = self.learner(ctrl)
 
         # Use the controller to get an embeddings
-        inp = torch.cat([x] + prev_reads, dim=1)
-        controller_outp, controller_state = self.controller(inp, prev_controller_state)
+        # inp = torch.cat([x] + prev_reads, dim=1)
+        # print('prev_reads', prev_reads.shape)
+        controller_outp, controller_state = self.controller(
+            prev_reads, 
+            k_x, v_x,
+            k_ctrl, v_ctrl,
+            prev_controller_state)
 
         # Read/Write from the list of heads
         reads = []
@@ -89,6 +100,40 @@ class NTM(nn.Module):
         o = F.sigmoid(self.fc(inp2))
 
         # Pack the current state
+        reads = torch.cat(reads, dim=1)
         state = (reads, controller_state, heads_states)
 
         return o, state
+
+    # def forward(self, x, prev_state):
+    #     """NTM forward function.
+
+    #     :param x: input vector (batch_size x num_inputs)
+    #     :param prev_state: The previous state of the NTM
+    #     """
+    #     # Unpack the previous state
+    #     prev_reads, prev_controller_state, prev_heads_states = prev_state
+
+    #     # Use the controller to get an embeddings
+    #     inp = torch.cat([x] + prev_reads, dim=1)
+    #     controller_outp, controller_state = self.controller(inp, prev_controller_state)
+
+    #     # Read/Write from the list of heads
+    #     reads = []
+    #     heads_states = []
+    #     for head, prev_head_state in zip(self.heads, prev_heads_states):
+    #         if head.is_read_head():
+    #             r, head_state = head(controller_outp, prev_head_state)
+    #             reads += [r]
+    #         else:
+    #             head_state = head(controller_outp, prev_head_state)
+    #         heads_states += [head_state]
+
+    #     # Generate Output
+    #     inp2 = torch.cat([controller_outp] + reads, dim=1)
+    #     o = F.sigmoid(self.fc(inp2))
+
+    #     # Pack the current state
+    #     state = (reads, controller_state, heads_states)
+
+    #     return o, state

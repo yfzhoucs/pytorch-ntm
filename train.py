@@ -25,6 +25,7 @@ from tasks.addonetask import AddOneTaskModelTraining, AddOneTaskParams
 import tasks.addonetask_onehot as aoo
 import tasks.addonetask_onehot_reverse as aoo_r
 from tasks.tellparitytask import TellParityTaskModelTraining, TellParityTaskParams
+from tasks.addone_tellparity_bcd import AddOneTellParityModelTraining, AddOneTellParityTaskParams
 
 TASKS = {
     'copy': (CopyTaskModelTraining, CopyTaskParams),
@@ -33,6 +34,7 @@ TASKS = {
     'add-one-onehot': (aoo.AddOneTaskModelTraining, aoo.AddOneTaskParams),
     'add-one-onehot-reverse': (aoo_r.AddOneTaskModelTraining, aoo_r.AddOneTaskParams),
     'tell-parity': (TellParityTaskModelTraining, TellParityTaskParams),
+    'addone-tellparity-bcd': (AddOneTellParityModelTraining, AddOneTellParityTaskParams),
 }
 
 
@@ -41,6 +43,10 @@ RANDOM_SEED = 1000
 REPORT_INTERVAL = 200
 CHECKPOINT_INTERVAL = 1000
 
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+else:
+    device = torch.device('cpu')
 
 def get_ms():
     """Returns the current time in miliseconds."""
@@ -97,68 +103,38 @@ def clip_grads(net):
         p.grad.data.clamp_(-10, 10)
 
 
-def train_batch(net, criterion, optimizer, X, Y, task='add-one'):
-    if task != 'add-one-onehot':
-        """Trains a single batch."""
-        optimizer.zero_grad()
-        inp_seq_len = X.size(0)
-        outp_seq_len, batch_size, _ = Y.size()
+def train_batch(net, criterion, optimizer, X, C, Y):
+    """Trains a single batch."""
+    optimizer.zero_grad()
+    inp_seq_len = X.size(0)
+    outp_seq_len, batch_size, _ = Y.size()
 
-        # New sequence
-        net.init_sequence(batch_size)
+    # New sequence
+    net.init_sequence(batch_size)
+    net.seeAndListen(X, C)
 
-        # Feed the sequence + delimiter
-        for i in range(inp_seq_len):
-            net(X[i])
+    # # Feed the sequence + delimiter
+    # for i in range(inp_seq_len):
+    #     net()
 
-        # Read the output (no input given)
-        y_out = torch.zeros(Y.size())
-        for i in range(outp_seq_len):
-            y_out[i], _ = net()
+    # Read the output (no input given)
+    y_out = torch.zeros(Y.size())
+    # Y = Y.to('cpu')
+    for i in range(outp_seq_len):
+        y_out[i], _ = net()
 
-        loss = criterion(y_out, Y)
-        loss.backward()
-        clip_grads(net)
-        optimizer.step()
+    loss = criterion(y_out, Y)
+    loss.backward()
+    clip_grads(net)
+    optimizer.step()
 
-        y_out_binarized = y_out.clone().data
-        y_out_binarized.apply_(lambda x: 0 if x < 0.5 else 1)
+    y_out_binarized = y_out.clone().data
+    y_out_binarized.apply_(lambda x: 0 if x < 0.5 else 1)
 
-        # The cost is the number of error bits per sequence
-        cost = torch.sum(torch.abs(y_out_binarized - Y.data))
+    # The cost is the number of error bits per sequence
+    cost = torch.sum(torch.abs(y_out_binarized - Y.data))
 
-        return loss.item(), cost.item() / batch_size
-    
-    else:
-        """Trains a single batch."""
-        optimizer.zero_grad()
-        inp_seq_len = X.size(0)
-        outp_seq_len, batch_size, _ = Y.size()
-
-        # New sequence
-        net.init_sequence(batch_size)
-
-        # Feed the sequence + delimiter
-        for i in range(inp_seq_len):
-            net(X[i])
-
-        # Read the output (no input given)
-        y_out = torch.zeros(Y.size())
-        for i in range(outp_seq_len):
-            y_out[i], _ = net()
-
-        loss = criterion(y_out, Y)
-        loss.backward()
-        clip_grads(net)
-        optimizer.step()
-
-        y_out_binarized = y_out.clone().data
-        y_out_binarized.apply_(lambda x: 0 if x < 0.5 else 1)
-
-        # The cost is the number of error bits per sequence
-        cost = torch.sum(torch.abs(y_out_binarized - Y.data))
-
-        return loss.item(), cost.item() / batch_size
+    return loss.item(), cost.item() / batch_size
 
 
 def evaluate(net, criterion, X, Y):
@@ -203,6 +179,7 @@ def evaluate(net, criterion, X, Y):
 def train_model(model, args):
     num_batches = model.params.num_batches
     batch_size = model.params.batch_size
+    # model.net = model.net.to(device)
 
     LOGGER.info("Training model for %d batches (batch_size=%d)...",
                 num_batches, batch_size)
@@ -212,8 +189,11 @@ def train_model(model, args):
     seq_lengths = []
     start_ms = get_ms()
 
-    for batch_num, x, y in model.dataloader:
-        loss, cost = train_batch(model.net, model.criterion, model.optimizer, x, y)
+    for batch_num, x, c, y in model.dataloader:
+        # x = x.to(device)
+        # c = c.to(device)
+        # y = y.to(device)
+        loss, cost = train_batch(model.net, model.criterion, model.optimizer, x, c, y)
         losses += [loss]
         costs += [cost]
         seq_lengths += [y.size(0)]

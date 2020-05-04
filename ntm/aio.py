@@ -5,6 +5,8 @@ from .ntm import NTM
 from .controller import LSTMController
 from .head import NTMReadHead, NTMWriteHead
 from .memory import NTMMemory
+from .sensor import NTMSensor
+from .learner import NTMLearner
 
 
 class EncapsulatedNTM(nn.Module):
@@ -34,13 +36,15 @@ class EncapsulatedNTM(nn.Module):
 
         # Create the NTM components
         memory = NTMMemory(N, M)
-        controller = LSTMController(num_inputs + M*num_heads, controller_size, controller_layers)
+        controller = LSTMController(3*M*num_heads, controller_size, controller_layers)
         heads = nn.ModuleList([])
         for i in range(num_heads):
             heads += [
                 NTMReadHead(memory, controller_size),
                 NTMWriteHead(memory, controller_size)
             ]
+        self.sensor = NTMSensor(M*num_heads)
+        self.learner = NTMLearner(M*num_heads)
 
         self.ntm = NTM(num_inputs, num_outputs, controller, memory, heads)
         self.memory = memory
@@ -51,12 +55,20 @@ class EncapsulatedNTM(nn.Module):
         self.memory.reset(batch_size)
         self.previous_state = self.ntm.create_new_state(batch_size)
 
-    def forward(self, x=None):
-        if x is None:
-            x = torch.zeros(self.batch_size, self.num_inputs)
+    def seeAndListen(self, x, ctrl):
+        self.k_x, self.v_x = self.sensor(x)
+        self.k_ctrl, self.v_ctrl = self.learner(ctrl)
 
-        o, self.previous_state = self.ntm(x, self.previous_state)
+    def forward(self):
+        # if x is None:
+        #     x = torch.zeros(self.batch_size, self.num_inputs)
+
+        o, self.previous_state = self.ntm(self.k_x, self.v_x, 
+            self.k_ctrl, self.v_ctrl, self.previous_state)
+
         return o, self.previous_state
+
+
 
     def calculate_num_params(self):
         """Returns the total number of parameters."""

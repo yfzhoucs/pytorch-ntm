@@ -5,6 +5,11 @@ import torch.nn.functional as F
 import numpy as np
 
 
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+else:
+    device = torch.device('cpu')
+
 def _split_cols(mat, lengths):
     """Split a 2D matrix to variable length columns."""
     assert mat.size()[1] == sum(lengths), "Lengths must be summed to num columns"
@@ -63,7 +68,7 @@ class NTMReadHead(NTMHeadBase):
 
     def create_new_state(self, batch_size):
         # The state holds the previous time step address weightings
-        return torch.zeros(batch_size, self.N)
+        return torch.zeros(batch_size, self.N)#.to(device)
 
     def reset_parameters(self):
         # Initialize the linear layers
@@ -99,7 +104,7 @@ class NTMWriteHead(NTMHeadBase):
         self.reset_parameters()
 
     def create_new_state(self, batch_size):
-        return torch.zeros(batch_size, self.N)
+        return torch.zeros(batch_size, self.N)#.to(device)
 
     def reset_parameters(self):
         # Initialize the linear layers

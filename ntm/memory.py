@@ -4,6 +4,10 @@ import torch.nn.functional as F
 from torch import nn
 import numpy as np
 
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+else:
+    device = torch.device('cpu')
 
 def _convolve(w, s):
     """Circular convolution implementation."""
@@ -70,12 +74,12 @@ class NTMMemory(nn.Module):
         :param w_prev: The weighting produced in the previous time step.
         """
         # Content focus
-        wc = self._similarity(k, β)
+        wc = self._similarity(k, β)#.to(device)
 
         # Location focus
-        wg = self._interpolate(w_prev, wc, g)
-        ŵ = self._shift(wg, s)
-        w = self._sharpen(ŵ, γ)
+        wg = self._interpolate(w_prev, wc, g)#.to(device)
+        ŵ = self._shift(wg, s)#.to(device)
+        w = self._sharpen(ŵ, γ)#.to(device)
 
         return w
 
@@ -94,6 +98,7 @@ class NTMMemory(nn.Module):
         return result
 
     def _sharpen(self, ŵ, γ):
+        # print(ŵ, γ)
         w = ŵ ** γ
         w = torch.div(w, torch.sum(w, dim=1).view(-1, 1) + 1e-16)
         return w

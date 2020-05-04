@@ -5,6 +5,11 @@ from torch.nn import Parameter
 import numpy as np
 
 
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+else:
+    device = torch.device('cpu')
+
 class LSTMController(nn.Module):
     """An NTM controller based on LSTM."""
     def __init__(self, num_inputs, num_outputs, num_layers):
@@ -24,10 +29,13 @@ class LSTMController(nn.Module):
 
         self.reset_parameters()
 
+        self.x_attn = nn.MultiheadAttention(embed_dim=num_inputs // 3, num_heads=1)
+        self.ctrl_attn = nn.MultiheadAttention(embed_dim=num_inputs // 3, num_heads=1)
+
     def create_new_state(self, batch_size):
         # Dimension: (num_layers * num_directions, batch, hidden_size)
-        lstm_h = self.lstm_h_bias.clone().repeat(1, batch_size, 1)
-        lstm_c = self.lstm_c_bias.clone().repeat(1, batch_size, 1)
+        lstm_h = self.lstm_h_bias.clone().repeat(1, batch_size, 1)#.to(device)
+        lstm_c = self.lstm_c_bias.clone().repeat(1, batch_size, 1)#.to(device)
         return lstm_h, lstm_c
 
     def reset_parameters(self):
@@ -41,7 +49,16 @@ class LSTMController(nn.Module):
     def size(self):
         return self.num_inputs, self.num_outputs
 
-    def forward(self, x, prev_state):
-        x = x.unsqueeze(0)
+    def forward(self, prev_reads, 
+            k_x, v_x, 
+            k_ctrl, v_ctrl, 
+            prev_state):
+        prev_reads = prev_reads.unsqueeze(0)
+        # print('qkv', prev_reads.shape, k_x.shape, v_x.shape)
+        x_attn_outp, _ = self.x_attn(prev_reads, k_x, v_x)
+        ctrl_attn_outp, _ = self.ctrl_attn(prev_reads, k_ctrl, v_ctrl)
+        # print('qxava', prev_reads.shape, x_attn_outp.shape, ctrl_attn_outp.shape)
+        x = torch.cat((prev_reads, x_attn_outp, ctrl_attn_outp), dim=2)
+        # print(x.shape)
         outp, state = self.lstm(x, prev_state)
         return outp.squeeze(0), state
