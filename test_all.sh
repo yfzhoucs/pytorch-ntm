@@ -1,0 +1,1 @@
+python test_all.py --checkpoint_file=all-bcd-1000-batch-350000.model

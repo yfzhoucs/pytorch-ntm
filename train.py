@@ -26,6 +26,8 @@ import tasks.addonetask_onehot as aoo
 import tasks.addonetask_onehot_reverse as aoo_r
 from tasks.tellparitytask import TellParityTaskModelTraining, TellParityTaskParams
 from tasks.addone_tellparity_bcd import AddOneTellParityModelTraining, AddOneTellParityTaskParams
+from tasks.addone_tellparity_add_bcd import AddOneTellParityAddModelTraining, AddOneTellParityAddTaskParams
+from tasks.all_bcd import AllBCDModelTraining, AllBCDTaskParams
 
 TASKS = {
     'copy': (CopyTaskModelTraining, CopyTaskParams),
@@ -35,6 +37,9 @@ TASKS = {
     'add-one-onehot-reverse': (aoo_r.AddOneTaskModelTraining, aoo_r.AddOneTaskParams),
     'tell-parity': (TellParityTaskModelTraining, TellParityTaskParams),
     'addone-tellparity-bcd': (AddOneTellParityModelTraining, AddOneTellParityTaskParams),
+    'addone-tellparity-add-bcd': (AddOneTellParityAddModelTraining, AddOneTellParityAddTaskParams),
+    'all-bcd': (AllBCDModelTraining, AllBCDTaskParams),
+
 }
 
 
@@ -293,6 +298,7 @@ def main():
 
     # Initialize the model
     model = init_model(args)
+    # model.net.load_state_dict(torch.load('all-bcd-1000-batch-250000.model'))
 
     LOGGER.info("Total number of parameters: %d", model.net.calculate_num_params())
     train_model(model, args)
