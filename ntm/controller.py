@@ -19,7 +19,9 @@ class LSTMController(nn.Module):
         self.num_outputs = num_outputs
         self.num_layers = num_layers
 
-        self.lstm = nn.LSTM(input_size=num_inputs,
+        print(num_inputs, num_outputs)
+
+        self.lstm = nn.LSTM(input_size=num_inputs // 3 * 4,
                             hidden_size=num_outputs,
                             num_layers=num_layers)
 
@@ -29,13 +31,14 @@ class LSTMController(nn.Module):
 
         self.reset_parameters()
 
-        self.x_attn = nn.MultiheadAttention(embed_dim=num_inputs // 3, num_heads=1)
+        self.x_attn = nn.MultiheadAttention(embed_dim=num_inputs // 3, num_heads=2)
+        self.x_attn_2 = nn.MultiheadAttention(embed_dim=num_inputs // 3, num_heads=2)
         self.ctrl_attn = nn.MultiheadAttention(embed_dim=num_inputs // 3, num_heads=1)
 
     def create_new_state(self, batch_size):
         # Dimension: (num_layers * num_directions, batch, hidden_size)
-        lstm_h = self.lstm_h_bias.clone().repeat(1, batch_size, 1)#.to(device)
-        lstm_c = self.lstm_c_bias.clone().repeat(1, batch_size, 1)#.to(device)
+        lstm_h = self.lstm_h_bias.clone().repeat(1, batch_size, 1).to(device)
+        lstm_c = self.lstm_c_bias.clone().repeat(1, batch_size, 1).to(device)
         return lstm_h, lstm_c
 
     def reset_parameters(self):
@@ -56,9 +59,12 @@ class LSTMController(nn.Module):
         prev_reads = prev_reads.unsqueeze(0)
         # print('qkv', prev_reads.shape, k_x.shape, v_x.shape)
         x_attn_outp, _ = self.x_attn(prev_reads, k_x, v_x)
+        x_attn_outp_2, _ = self.x_attn_2(prev_reads, k_x, v_x)
         ctrl_attn_outp, _ = self.ctrl_attn(prev_reads, k_ctrl, v_ctrl)
         # print('qxava', prev_reads.shape, x_attn_outp.shape, ctrl_attn_outp.shape)
-        x = torch.cat((prev_reads, x_attn_outp, ctrl_attn_outp), dim=2)
+        x = torch.cat((prev_reads, x_attn_outp, x_attn_outp_2, ctrl_attn_outp), dim=2)
         # print(x.shape)
         outp, state = self.lstm(x, prev_state)
+        # print(outp.shape)
+        # input()
         return outp.squeeze(0), state

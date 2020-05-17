@@ -28,6 +28,8 @@ from tasks.tellparitytask import TellParityTaskModelTraining, TellParityTaskPara
 from tasks.addone_tellparity_bcd import AddOneTellParityModelTraining, AddOneTellParityTaskParams
 from tasks.addone_tellparity_add_bcd import AddOneTellParityAddModelTraining, AddOneTellParityAddTaskParams
 from tasks.all_bcd import AllBCDModelTraining, AllBCDTaskParams
+from tasks.seq2_bcd import Seq2BCDModelTraining, Seq2BCDTaskParams
+from tasks.add_bcd import AddBCDModelTraining, AddBCDTaskParams
 
 TASKS = {
     'copy': (CopyTaskModelTraining, CopyTaskParams),
@@ -39,7 +41,8 @@ TASKS = {
     'addone-tellparity-bcd': (AddOneTellParityModelTraining, AddOneTellParityTaskParams),
     'addone-tellparity-add-bcd': (AddOneTellParityAddModelTraining, AddOneTellParityAddTaskParams),
     'all-bcd': (AllBCDModelTraining, AllBCDTaskParams),
-
+    'seq2-bcd': (Seq2BCDModelTraining, Seq2BCDTaskParams),
+    'add-bcd': (AddBCDModelTraining, AddBCDTaskParams),
 }
 
 
@@ -124,7 +127,7 @@ def train_batch(net, criterion, optimizer, X, C, Y):
 
     # Read the output (no input given)
     y_out = torch.zeros(Y.size())
-    # Y = Y.to('cpu')
+    Y = Y.to('cpu')
     for i in range(outp_seq_len):
         y_out[i], _ = net()
 
@@ -184,7 +187,7 @@ def evaluate(net, criterion, X, Y):
 def train_model(model, args):
     num_batches = model.params.num_batches
     batch_size = model.params.batch_size
-    # model.net = model.net.to(device)
+    model.net = model.net.to(device)
 
     LOGGER.info("Training model for %d batches (batch_size=%d)...",
                 num_batches, batch_size)
@@ -195,9 +198,9 @@ def train_model(model, args):
     start_ms = get_ms()
 
     for batch_num, x, c, y in model.dataloader:
-        # x = x.to(device)
-        # c = c.to(device)
-        # y = y.to(device)
+        x = x.to(device)
+        c = c.to(device)
+        y = y.to(device)
         loss, cost = train_batch(model.net, model.criterion, model.optimizer, x, c, y)
         losses += [loss]
         costs += [cost]

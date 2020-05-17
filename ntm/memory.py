@@ -74,12 +74,12 @@ class NTMMemory(nn.Module):
         :param w_prev: The weighting produced in the previous time step.
         """
         # Content focus
-        wc = self._similarity(k, β)#.to(device)
+        wc = self._similarity(k, β).to(device)
 
         # Location focus
-        wg = self._interpolate(w_prev, wc, g)#.to(device)
-        ŵ = self._shift(wg, s)#.to(device)
-        w = self._sharpen(ŵ, γ)#.to(device)
+        wg = self._interpolate(w_prev, wc, g).to(device)
+        ŵ = self._shift(wg, s).to(device)
+        w = self._sharpen(ŵ, γ).to(device)
 
         return w
 

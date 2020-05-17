@@ -1,4 +1,6 @@
 .cache/
 notebooks/.ipynb_checkpoints
 env
-
+ckpts/
+tasks/__pycache__/
+ntm/__pycache__/
